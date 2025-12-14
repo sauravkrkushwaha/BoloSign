@@ -1,4 +1,6 @@
-/* Minimal global reset + base look */
+/* =========================================================
+   GLOBAL RESET & BASE
+========================================================= */
 
 *,
 *::before,
@@ -9,13 +11,405 @@
 html,
 body,
 #root {
-  margin: 0;
-  padding: 0;
   height: 100%;
+  margin: 0;
 }
 
 body {
-  background-color: #f3f4f6;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: #f8fafc;
+  color: #0f172a;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* =========================================================
+   VARIABLES (DESIGN SYSTEM)
+========================================================= */
+
+:root {
+  --bg-main: #f8fafc;
+  --bg-panel: #ffffff;
+  --bg-soft: #f1f5f9;
+
+  --border-soft: #e2e8f0;
+  --border-strong: #cbd5e1;
+
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-soft: #dbeafe;
+
+  --danger: #ef4444;
+
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.08);
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+}
+
+/* =========================================================
+   HEADER
+========================================================= */
+
+.app-header {
+  height: 56px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border-soft);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo {
+  font-size: 20px;
+}
+
+.title {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* =========================================================
+   EDITOR LAYOUT
+========================================================= */
+
+.app-root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  overflow: hidden;
+}
+
+/* =========================================================
+   TOOLBAR
+========================================================= */
+
+.toolbar {
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border-soft);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.toolbar-items {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.toolbar-item {
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-soft);
+  background: var(--bg-soft);
+  cursor: pointer;
+  font-size: 14px;
+  text-align: left;
+}
+
+.toolbar-item:hover {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+}
+
+.toolbar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+/* =========================================================
+   PDF AREA
+========================================================= */
+
+.editor-canvas {
+  background: var(--bg-main);
+  overflow-y: auto;
+  padding: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.pdf-viewer-root {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.pdf-viewer-wrapper {
+  width: 100%;
+  max-width: 900px;
+}
+
+.pdf-page-container {
+  position: relative;
+  background: white;
+  box-shadow: var(--shadow-md);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.pdf-overlay-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* =========================================================
+   PAGE & FIELD LAYERS
+========================================================= */
+
+.page-layer {
+  position: relative;
+}
+
+.draggable-field {
+  border: 2px dashed var(--primary);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: var(--shadow-sm);
+  cursor: move;
+}
+
+.draggable-field.selected {
+  background: var(--primary-soft);
+}
+
+.draggable-field-content {
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+}
+
+.resize-handle {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  width: 14px;
+  height: 14px;
+  background: var(--primary);
+  border-radius: 50%;
+  cursor: se-resize;
+}
+
+/* =========================================================
+   SIGNATURE BOX
+========================================================= */
+
+.signature-box {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.signature-canvas {
+  width: 100%;
+  height: 100%;
+  background: white;
+  border-radius: var(--radius-sm);
+  touch-action: none;
+}
+
+.signature-clear-btn {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  font-size: 11px;
+  padding: 4px 8px;
+  background: var(--danger);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+/* =========================================================
+   BUTTONS
+========================================================= */
+
+.sign-btn {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--primary);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 999px;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+}
+
+.sign-btn:hover {
+  background: var(--primary-hover);
+}
+
+.fab {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  font-size: 22px;
+  border: none;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+}
+
+/* =========================================================
+   LOADER
+========================================================= */
+
+.loader-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.loader-content {
+  background: white;
+  padding: 24px 32px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: var(--shadow-md);
+}
+
+.loader-spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--border-soft);
+  border-top-color: var(--primary);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* =========================================================
+   PREVIEW
+========================================================= */
+
+.preview-root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-container {
+  flex: 1;
+  padding: 20px;
+}
+
+.preview-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.preview-actions {
+  padding: 16px;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.preview-btn {
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-soft);
+  background: var(--bg-panel);
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--text-main);
+}
+
+.preview-btn.primary {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.text-input {
+  width: 100%;
+  height: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  text-align: center;
+  font-size: 13px;
+}
+
+
+/* =========================================================
+   MOBILE RESPONSIVE
+========================================================= */
+
+@media (max-width: 768px) {
+  .editor-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .toolbar-desktop {
+    display: none;
+  }
+
+  .toolbar-mobile {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60%;
+    background: var(--bg-panel);
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.2);
+    transform: translateY(100%);
+    transition: transform 0.3s ease;
+    z-index: 50;
+  }
+
+  .toolbar-mobile.open {
+    transform: translateY(0);
+  }
 }

@@ -1,57 +1,70 @@
-// src/utils/coordinateConverter.js
-
-// A4 page size in PDF points (72 DPI)
-export const A4_PAGE_SIZE = {
-  width: 595, // points
-  height: 842, // points
-};
+/**
+ * coordinateUtils.js
+ *
+ * Pure utility functions for coordinate math.
+ * No React, no DOM — just deterministic logic.
+ */
 
 /**
- * Calculate scale factors between rendered HTML size and real PDF size.
- * renderedSize = { width: number, height: number }
+ * Clamp a value between min and max
  */
-export function getScaleFactors(renderedSize, pdfPageSize = A4_PAGE_SIZE) {
-  if (!renderedSize || !renderedSize.width || !renderedSize.height) {
-    return { scaleX: 1, scaleY: 1 };
-  }
-
-  const scaleX = pdfPageSize.width / renderedSize.width;
-  const scaleY = pdfPageSize.height / renderedSize.height;
-
-  return { scaleX, scaleY };
+export function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
 }
 
 /**
- * Convert a field from HTML pixels → PDF points.
- *
- * field = {
- *   x, y, width, height
- * }
- *
- * renderedSize = {
- *   width, height
- * }
+ * Normalize pixel values to percentages
  */
-export function fieldPxToPdf(
-  field,
-  renderedSize,
-  pdfPageSize = A4_PAGE_SIZE,
-  page = 1
-) {
-  if (!field || !renderedSize) return null;
-
-  const { x, y, width, height } = field;
-  const { scaleX, scaleY } = getScaleFactors(renderedSize, pdfPageSize);
-
-  // PDF coordinate system: origin at bottom-left
-  const pdfX = x * scaleX;
-  const pdfY = (renderedSize.height - y - height) * scaleY;
-
+export function normalizeToPct({
+  x,
+  y,
+  width,
+  height,
+  pageWidth,
+  pageHeight,
+}) {
   return {
-    x: pdfX,
-    y: pdfY,
-    width: width * scaleX,
-    height: height * scaleY,
-    page,
+    xPct: clamp(x / pageWidth, 0, 1),
+    yPct: clamp(y / pageHeight, 0, 1),
+    widthPct: clamp(width / pageWidth, 0, 1),
+    heightPct: clamp(height / pageHeight, 0, 1),
+  };
+}
+
+/**
+ * Convert percentages back to pixels
+ */
+export function denormalizeToPx({
+  xPct,
+  yPct,
+  widthPct,
+  heightPct,
+  pageWidth,
+  pageHeight,
+}) {
+  return {
+    x: xPct * pageWidth,
+    y: yPct * pageHeight,
+    width: widthPct * pageWidth,
+    height: heightPct * pageHeight,
+  };
+}
+
+/**
+ * Ensure field stays inside page bounds
+ */
+export function clampToPage({
+  x,
+  y,
+  width,
+  height,
+  pageWidth,
+  pageHeight,
+}) {
+  return {
+    x: clamp(x, 0, pageWidth - width),
+    y: clamp(y, 0, pageHeight - height),
+    width,
+    height,
   };
 }

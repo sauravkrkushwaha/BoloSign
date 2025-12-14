@@ -1,68 +1,78 @@
-// src/utils/api.js
-
-// API base URL (Vite env se ya default localhost)
-export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
-
-// Backend origin (without /api) → static /uploads URLs ke liye
-export const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, "");
-
 /**
- * Generic HTTP request helper
+ * api.js
+ *
+ * Centralized backend communication layer
+ * Keeps pages & components clean
  */
-async function request(path, options = {}) {
-  const url =
-    path.startsWith("http://") || path.startsWith("https://")
-      ? path
-      : `${API_BASE_URL}${path}`;
 
-  const defaultHeaders = {
-    "Content-Type": "application/json",
-  };
-
-  const finalOptions = {
-    headers: {
-      ...defaultHeaders,
-      ...(options.headers || {}),
-    },
-    ...options,
-  };
-
-  const res = await fetch(url, finalOptions);
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`API error: ${res.status} ${res.statusText} ${text}`);
-  }
-
-  const contentType = res.headers.get("content-type") || "";
-  if (contentType.includes("application/json")) {
-    return res.json();
-  }
-  return res.text();
-}
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  "http://localhost:5000/api";
 
 /**
- * Call backend to sign PDF.
- * payload example:
+ * Sign PDF
+ *
+ * Payload format (LOCKED with backend):
  * {
- *   pdfId: "sample-1",
- *   signatureImage: "data:image/png;base64,...",
- *   fields: [ { x, y, width, height, page, type } ]
+ *   pdfId: string,
+ *   signatureImage: base64 | null,
+ *   fields: [
+ *     {
+ *       page,
+ *       type,
+ *       xPct,
+ *       yPct,
+ *       widthPct,
+ *       heightPct,
+ *       value?
+ *     }
+ *   ]
  * }
  */
-export function signPdf(payload) {
-  return request("/sign-pdf", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+export async function signPdf(payload) {
+  const response = await fetch(
+    `${API_BASE_URL}/sign-pdf`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+
+  if (!response.ok) {
+    const error = await safeJson(response);
+    throw new Error(
+      error?.error || "Failed to sign PDF"
+    );
+  }
+
+  return response.json();
 }
 
 /**
- * Optional: fetch audit trail for a PDF
+ * Fetch audit trail (optional feature)
  */
-export function getAuditTrail(pdfId) {
-  return request(`/audit/${encodeURIComponent(pdfId)}`, {
-    method: "GET",
-  });
+export async function getAuditTrail(pdfId) {
+  const response = await fetch(
+    `${API_BASE_URL}/audit/${pdfId}`
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch audit trail");
+  }
+
+  return response.json();
+}
+
+/**
+ * Safe JSON parser
+ */
+async function safeJson(response) {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
 }

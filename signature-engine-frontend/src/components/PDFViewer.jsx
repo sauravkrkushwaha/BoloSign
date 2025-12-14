@@ -1,68 +1,92 @@
-// src/components/PDFViewer.jsx
-import React, { useRef } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
+import { useEffect, useRef, useState } from "react";
 import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
 
-const A4_RATIO = 842 / 595; // height / width
+/**
+ * PDFViewer
+ *
+ * Responsibilities:
+ * 1. Render PDF responsively
+ * 2. Measure rendered page dimensions
+ * 3. Expose page metadata to parent
+ * 4. Provide a stable overlay container
+ *
+ * Props:
+ * - file: PDF URL / File
+ * - onPageReady({ pageIndex, width, height })
+ * - children: overlay layers (fields)
+ */
+export default function PDFViewer({
+  file,
+  onPageReady,
+  children,
+}) {
+  const wrapperRef = useRef(null);
+  const pageContainerRef = useRef(null);
 
-function PDFViewer({ file = "/sample.pdf", children, pageWidth = 700, pageHeight }) {
-  const containerRef = useRef(null);
-  // allow caller to override computed height; otherwise compute from ratio
-  const computedHeight = pageHeight || Math.round(pageWidth * A4_RATIO);
+  const [numPages, setNumPages] = useState(0);
+  const [renderWidth, setRenderWidth] = useState(0);
 
-  const styles = {
-    wrapper: {
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "flex-start",
-      padding: 16,
-      boxSizing: "border-box",
-      width: "100%",
-      height: "100%",
-    },
-    // crucial: set explicit size equal to the page canvas size
-    viewerContainer: {
-      position: "relative",           // anchor for absolute overlay children
-      width: pageWidth,
-      height: computedHeight,
-      boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
-      borderRadius: 8,
-      overflow: "hidden",             // prevent children spilling out
-      backgroundColor: "#f5f5f5",
-      boxSizing: "border-box",
-    },
-    overlayLayer: {
-      position: "absolute",
-      left: 0,
-      top: 0,
-      width: pageWidth,
-      height: computedHeight,
-      pointerEvents: "auto",          // allow dragging / clicking overlay children
-      zIndex: 10,
-    },
-  };
+  /**
+   * Track container width (responsive)
+   */
+  useEffect(() => {
+    if (!wrapperRef.current) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const rect = entries[0].contentRect;
+      setRenderWidth(rect.width);
+    });
+
+    observer.observe(wrapperRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   return (
-    <div style={styles.wrapper}>
-      <div ref={containerRef} style={styles.viewerContainer}>
-        <Document file={file} loading={<div>Loading PDF...</div>}>
-          <Page
-            pageNumber={1}
-            width={pageWidth}
-            renderTextLayer={false}
-            renderAnnotationLayer={false}
-          />
-        </Document>
+    <div className="pdf-viewer-root">
+      <div
+        ref={wrapperRef}
+        className="pdf-viewer-wrapper"
+      >
+        <Document
+          file={file}
+          loading={<div className="pdf-loading">Loading PDF…</div>}
+          onLoadSuccess={({ numPages }) =>
+            setNumPages(numPages)
+          }
+        >
+          {/* 🔒 Single page rendering (page 0) */}
+          <div
+            ref={pageContainerRef}
+            className="pdf-page-container"
+          >
+            <Page
+              pageNumber={1}
+              width={renderWidth}
+              renderTextLayer={false}
+              renderAnnotationLayer={false}
+              onLoadSuccess={(page) => {
+                const viewport = page.getViewport({
+                  scale: renderWidth / page.view[2],
+                });
 
-        {/* Overlay layer — now exactly same size as PDF canvas */}
-        <div style={styles.overlayLayer}>
-          {children}
-        </div>
+                onPageReady?.({
+                  pageIndex: 0, // 0-based index (LOCKED)
+                  width: viewport.width,
+                  height: viewport.height,
+                });
+              }}
+            />
+
+            {/* 🔥 Overlay Layer (fields live here) */}
+            <div className="pdf-overlay-layer">
+              {children}
+            </div>
+          </div>
+        </Document>
       </div>
     </div>
   );
 }
-
-export default PDFViewer;

@@ -2,7 +2,7 @@
 
 import fs from "fs";
 import path from "path";
-import { PDFDocument, rgb } from "pdf-lib";
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { ENV } from "../config/env.js";
 import { hashFile, hashBuffer } from "./hashService.js";
 
@@ -16,72 +16,50 @@ function ensureUploadDir() {
 }
 
 /**
- * Strip base64 data URL prefix and return raw base64 string
- * e.g. "data:image/png;base64,AAAA..." -> "AAAA..."
+ * Strip base64 prefix
  */
 function stripBase64Prefix(dataUrl) {
   if (!dataUrl) return null;
-  const parts = dataUrl.split(",");
-  return parts.length === 2 ? parts[1] : dataUrl;
+  return dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
 }
 
 /**
- * Draw signature image inside a given box while preserving aspect ratio.
- * Box is defined in PDF points: { x, y, width, height, page }
+ * Draw signature image inside a box (aspect-ratio safe)
  */
-async function drawSignatureInBox(pdfDoc, page, signatureImageBytes, box) {
-  // 1) Embed image (PNG first, fallback JPG)
-  const signatureImage = await pdfDoc
-    .embedPng(signatureImageBytes)
-    .catch(async () => await pdfDoc.embedJpg(signatureImageBytes));
+async function drawSignature(pdfDoc, page, imageBytes, box) {
+  const image = await pdfDoc
+    .embedPng(imageBytes)
+    .catch(() => pdfDoc.embedJpg(imageBytes));
 
-  const imgWidth = signatureImage.width;
-  const imgHeight = signatureImage.height;
+  const scale = Math.min(
+    box.width / image.width,
+    box.height / image.height
+  );
 
-  const boxWidth = box.width;
-  const boxHeight = box.height;
+  const drawWidth = image.width * scale;
+  const drawHeight = image.height * scale;
 
-  // 2) Scale factor to fit inside box
-  const scale = Math.min(boxWidth / imgWidth, boxHeight / imgHeight);
+  const x = box.x + (box.width - drawWidth) / 2;
+  const y = box.y + (box.height - drawHeight) / 2;
 
-  const drawWidth = imgWidth * scale;
-  const drawHeight = imgHeight * scale;
+  page.drawImage(image, { x, y, width: drawWidth, height: drawHeight });
+}
 
-  // 3) Center image inside the box
-  const drawX = box.x + (boxWidth - drawWidth) / 2;
-  const drawY = box.y + (boxHeight - drawHeight) / 2;
-
-  // 🔴 DEBUG VISUAL: filled light-red rectangle with red border
-  page.drawRectangle({
-    x: box.x,
-    y: box.y,
-    width: boxWidth,
-    height: boxHeight,
-    color: rgb(1, 0.9, 0.9),        // light red fill
-    borderColor: rgb(1, 0, 0),      // red border
-    borderWidth: 1,
-  });
-
-  // 4) Draw the actual signature image
-  page.drawImage(signatureImage, {
-    x: drawX,
-    y: drawY,
-    width: drawWidth,
-    height: drawHeight,
+/**
+ * Draw text/date/radio
+ */
+function drawText(page, text, box, font) {
+  page.drawText(text, {
+    x: box.x + 4,
+    y: box.y + box.height / 2 - 6,
+    size: 12,
+    font,
+    color: rgb(0, 0, 0),
   });
 }
 
 /**
- * Main service: take an existing PDF on disk, overlay signatures,
- * calculate hashes, and save a new signed PDF.
- *
- * @param {Object} params
- * @param {string} params.pdfPath          - original PDF file path
- * @param {string} params.outputFileName   - file name for signed PDF
- * @param {string} params.signatureImage   - data URL or raw base64 PNG/JPG
- * @param {Array}  params.fields           - array of { x, y, width, height, page, type }
- *
- * @returns {Promise<{ originalHash, signedHash, signedFilePath }>}
+ * Main signing service
  */
 export async function signPdfOnDisk({
   pdfPath,
@@ -91,57 +69,73 @@ export async function signPdfOnDisk({
 }) {
   ensureUploadDir();
 
-  // 1) Hash of original PDF
   const originalHash = hashFile(pdfPath);
 
-  // 2) Load original PDF
   const pdfBytes = fs.readFileSync(pdfPath);
   const pdfDoc = await PDFDocument.load(pdfBytes);
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
-  console.log(
-    "Loaded PDF from:",
-    pdfPath,
-    "Pages:",
-    pdfDoc.getPageCount()
-  );
+  const signatureBytes = signatureImage
+    ? Buffer.from(stripBase64Prefix(signatureImage), "base64")
+    : null;
 
-  // 3) Prepare signature image bytes
-  if (!signatureImage) {
-    throw new Error("signatureImage is required to sign the PDF.");
-  }
-
-  const base64String = stripBase64Prefix(signatureImage);
-  const signatureBytes = Buffer.from(base64String, "base64");
-
-  // 4) For each signature-type field, draw signature
   for (const field of fields) {
-    if (field.type !== "signature") continue;
-
-    const pageIndex = (field.page || 1) - 1;
-
-    // Guard: page index must be valid
-    if (pageIndex < 0 || pageIndex >= pdfDoc.getPageCount()) {
-      console.warn(
-        "Skipping field with invalid page index:",
-        field,
-        "pageIndex:",
-        pageIndex
-      );
-      continue;
-    }
+    const pageIndex = field.page; // 0-based
+    if (pageIndex < 0 || pageIndex >= pdfDoc.getPageCount()) continue;
 
     const page = pdfDoc.getPage(pageIndex);
 
-    await drawSignatureInBox(pdfDoc, page, signatureBytes, field);
+    const pageWidth = page.getWidth();
+    const pageHeight = page.getHeight();
+
+    // 🔥 CORE LOGIC: % → PDF points + Y-axis flip
+    const box = {
+      x: field.xPct * pageWidth,
+      width: field.widthPct * pageWidth,
+      height: field.heightPct * pageHeight,
+      y:
+        pageHeight -
+        field.yPct * pageHeight -
+        field.heightPct * pageHeight,
+    };
+
+    switch (field.type) {
+      case "signature":
+        if (signatureBytes) {
+          await drawSignature(pdfDoc, page, signatureBytes, box);
+        }
+        break;
+
+      case "text":
+        drawText(page, field.value || "", box, font);
+        break;
+
+      case "date":
+        drawText(
+          page,
+          new Date().toLocaleDateString(),
+          box,
+          font
+        );
+        break;
+
+      case "radio":
+        drawText(
+          page,
+          field.value === "checked" ? "✔" : "",
+          box,
+          font
+        );
+        break;
+
+      default:
+        break;
+    }
   }
 
-  // 5) Save modified PDF to bytes
   const signedPdfBytes = await pdfDoc.save();
-
-  // 6) Hash of signed PDF
   const signedHash = hashBuffer(signedPdfBytes);
 
-  // 7) Save signed PDF to disk
   const signedFilePath = path.join(ENV.UPLOAD_DIR, outputFileName);
   fs.writeFileSync(signedFilePath, signedPdfBytes);
 

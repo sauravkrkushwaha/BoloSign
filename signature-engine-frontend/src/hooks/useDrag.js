@@ -1,65 +1,136 @@
-// src/hooks/useDrag.js
-
-import { useState, useEffect, useRef } from "react";
+import { useRef } from "react";
+import { usePdfCoordinates } from "./usePdfCoordinates";
 
 /**
- * For dragging toolbox items into PDF viewer.
- * NOT for dragging on the PDF (that is handled inside DraggableField.jsx).
+ * useDrag
+ *
+ * Responsibilities:
+ * - Handle drag (move) and resize interactions
+ * - Work in pixel space for smooth UI
+ * - Persist state ONLY in percentage space
+ *
+ * Props:
+ * - field: { x, y, width, height }  // pixel values
+ * - pageWidth, pageHeight
+ * - onChange(updatedPctCoords)
  */
-export default function useDrag() {
-  const [dragType, setDragType] = useState(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const dragPreviewRef = useRef(null);
+export function useDrag({
+  field,
+  pageWidth,
+  pageHeight,
+  onChange,
+}) {
+  const startRef = useRef(null);
+  const modeRef = useRef("move"); // "move" | "resize"
 
-  const startDrag = (type) => {
-    setDragType(type);
-    setIsDragging(true);
-  };
+  const {
+    pxToPct,
+    clampToPage,
+  } = usePdfCoordinates();
 
-  const endDrag = () => {
-    setDragType(null);
-    setIsDragging(false);
-  };
+  /**
+   * Pointer down (start move / resize)
+   */
+  const onPointerDown = (e, mode = "move") => {
+    e.preventDefault();
+    e.stopPropagation();
 
-  // Create floating preview while dragging
-  useEffect(() => {
-    if (!isDragging || !dragType) return;
+    modeRef.current = mode;
 
-    const preview = document.createElement("div");
-    preview.innerHTML = dragType.toUpperCase();
-    preview.style.position = "fixed";
-    preview.style.pointerEvents = "none";
-    preview.style.padding = "6px 10px";
-    preview.style.background = "white";
-    preview.style.borderRadius = "6px";
-    preview.style.boxShadow = "0 4px 12px rgba(0,0,0,0.2)";
-    preview.style.fontSize = "12px";
-    preview.style.zIndex = "9999";
+    const point = getPoint(e);
 
-    dragPreviewRef.current = preview;
-    document.body.appendChild(preview);
-
-    const moveHandler = (e) => {
-      if (!dragPreviewRef.current) return;
-      dragPreviewRef.current.style.left = e.clientX + 10 + "px";
-      dragPreviewRef.current.style.top = e.clientY + 10 + "px";
+    startRef.current = {
+      startX: point.x,
+      startY: point.y,
+      initial: { ...field },
     };
 
-    window.addEventListener("mousemove", moveHandler);
+    window.addEventListener(
+      "pointermove",
+      onPointerMove
+    );
+    window.addEventListener(
+      "pointerup",
+      onPointerUp
+    );
+  };
 
-    return () => {
-      window.removeEventListener("mousemove", moveHandler);
-      if (dragPreviewRef.current) {
-        dragPreviewRef.current.remove();
-        dragPreviewRef.current = null;
-      }
-    };
-  }, [isDragging, dragType]);
+  /**
+   * Pointer move (drag / resize)
+   */
+  const onPointerMove = (e) => {
+    if (!startRef.current) return;
+
+    const { startX, startY, initial } =
+      startRef.current;
+
+    const point = getPoint(e);
+
+    const dx = point.x - startX;
+    const dy = point.y - startY;
+
+    let next = {};
+
+    if (modeRef.current === "move") {
+      next = {
+        x: initial.x + dx,
+        y: initial.y + dy,
+        width: initial.width,
+        height: initial.height,
+      };
+    } else {
+      next = {
+        x: initial.x,
+        y: initial.y,
+        width: Math.max(40, initial.width + dx),
+        height: Math.max(24, initial.height + dy),
+      };
+    }
+
+    // Prevent overflow outside PDF page
+    const clamped = clampToPage({
+      ...next,
+      pageWidth,
+      pageHeight,
+    });
+
+    // Convert pixels → percentages (FINAL STATE)
+    const pct = pxToPct({
+      ...clamped,
+      pageWidth,
+      pageHeight,
+    });
+
+    onChange(pct);
+  };
+
+  /**
+   * Pointer up (end interaction)
+   */
+  const onPointerUp = () => {
+    startRef.current = null;
+
+    window.removeEventListener(
+      "pointermove",
+      onPointerMove
+    );
+    window.removeEventListener(
+      "pointerup",
+      onPointerUp
+    );
+  };
 
   return {
-    dragType,
-    isDragging,
-    startDrag,
-    endDrag,
+    onPointerDown,
+  };
+}
+
+/**
+ * Normalize pointer coordinates
+ */
+function getPoint(e) {
+  return {
+    x: e.clientX,
+    y: e.clientY,
   };
 }
