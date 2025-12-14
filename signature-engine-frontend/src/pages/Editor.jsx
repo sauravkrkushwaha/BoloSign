@@ -29,7 +29,6 @@ export default function Editor() {
   const [toolbarOpen, setToolbarOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  /* ---------------- ADD FIELD ---------------- */
   const addField = (type) => {
     if (!pageMeta) return;
 
@@ -49,7 +48,6 @@ export default function Editor() {
     setToolbarOpen(false);
   };
 
-  /* ---------------- UPDATE POSITION ---------------- */
   const updateField = (fieldId, updatedPct) => {
     setFields((prev) =>
       prev.map((f) =>
@@ -58,7 +56,6 @@ export default function Editor() {
     );
   };
 
-  /* ---------------- UPDATE VALUE (TEXT) ---------------- */
   const updateFieldValue = (fieldId, value) => {
     setFields((prev) =>
       prev.map((f) =>
@@ -67,7 +64,17 @@ export default function Editor() {
     );
   };
 
-  /* ---------------- SIGN PDF ---------------- */
+  // ❌ REMOVE FIELD
+  const removeField = (fieldId) => {
+    setFields((prev) =>
+      prev.filter((f) => f.id !== fieldId)
+    );
+
+    if (selectedId === fieldId) {
+      setSelectedId(null);
+    }
+  };
+
   const handleSign = async () => {
     try {
       setLoading(true);
@@ -79,8 +86,6 @@ export default function Editor() {
       };
 
       const result = await signPdf(payload);
-
-      // ✅ Navigate to preview with URL
       navigate("/preview", {
         state: { pdfUrl: result.url },
       });
@@ -117,6 +122,7 @@ export default function Editor() {
                   selectedId={selectedId}
                   onSelect={setSelectedId}
                   onUpdate={updateField}
+                  onRemove={removeField} // 👈 HERE
                   onFieldValueChange={updateFieldValue}
                   onSignatureChange={setSignatureImage}
                 />

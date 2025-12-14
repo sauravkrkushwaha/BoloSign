@@ -10,6 +10,7 @@ export default function FieldLayer({
   selectedId,
   onSelect,
   onUpdate,
+  onRemove,
   onFieldValueChange,
   onSignatureChange,
 }) {
@@ -28,6 +29,7 @@ export default function FieldLayer({
             onChange={(pct) =>
               onUpdate(field.id, pct)
             }
+            onRemove={onRemove}
           >
             {renderFieldContent(
               field,
