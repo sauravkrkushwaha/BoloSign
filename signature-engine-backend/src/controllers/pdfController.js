@@ -34,10 +34,10 @@ export const signPdf = async (req, res) => {
     if (!pdfRecord) {
       const defaultPath = path.join(
         process.cwd(),
-        "assets",
+        "src",
+        "uploads",
         "original-sample.pdf"
       );
-
 
       pdfRecord = await PdfRecord.create({
         pdfId,
