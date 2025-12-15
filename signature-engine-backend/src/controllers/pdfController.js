@@ -58,10 +58,11 @@ export const signPdf = async (req, res) => {
        * signature-engine-backend/assets/original-sample.pdf
        */
       const defaultPdfPath = path.resolve(
-        __dirname,
-        "../../assets/original-sample.pdf"
+        process.cwd(),
+        "signature-engine-backend",
+        "assets",
+        "original-sample.pdf"
       );
-
       pdfRecord = await PdfRecord.create({
         pdfId,
         originalHash: "TEMP",
