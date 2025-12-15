@@ -34,8 +34,7 @@ export const signPdf = async (req, res) => {
     if (!pdfRecord) {
       const defaultPath = path.join(
         process.cwd(),
-        "src",
-        "uploads",
+        "assets",
         "original-sample.pdf"
       );
 
@@ -57,7 +56,6 @@ export const signPdf = async (req, res) => {
     pdfRecord.signedHash = result.signedHash;
     pdfRecord.signedFilePath = result.signedFilePath;
     await pdfRecord.save();
-
     await AuditTrail.create({
       pdfId,
       action: "SIGNED",
