@@ -1,5 +1,3 @@
-// src/controllers/pdfController.js
-
 import path from "path";
 import PdfRecord from "../models/PdfRecord.js";
 import AuditTrail from "../models/AuditTrail.js";
@@ -17,7 +15,6 @@ export const signPdf = async (req, res) => {
       return res.status(400).json({ error: "Invalid payload" });
     }
 
-    // 🔐 Validate coordinate contract
     for (const field of fields) {
       if (
         typeof field.page !== "number" ||
@@ -37,10 +34,10 @@ export const signPdf = async (req, res) => {
     if (!pdfRecord) {
       const defaultPath = path.join(
         process.cwd(),
-        "src",
-        "uploads",
+        "assets",
         "original-sample.pdf"
       );
+
 
       pdfRecord = await PdfRecord.create({
         pdfId,
