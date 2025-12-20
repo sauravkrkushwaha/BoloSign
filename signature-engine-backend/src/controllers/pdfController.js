@@ -1,5 +1,3 @@
-// src/controllers/pdfController.js
-
 import path from "path";
 import fs from "fs";
 
@@ -35,7 +33,6 @@ export const signPdf = async (req, res) => {
 
     let pdfRecord = await PdfRecord.findOne({ pdfId });
 
-    // 🔥 CREATE NEW RECORD WITH LINUX-SAFE PATH
     if (!pdfRecord) {
       const defaultPdfPath = path.resolve(
         process.cwd(),
@@ -43,7 +40,6 @@ export const signPdf = async (req, res) => {
         "original-sample.pdf"
       );
 
-      // SAFETY CHECK
       if (!fs.existsSync(defaultPdfPath)) {
         return res.status(500).json({
           error: "Default PDF not found on server",
