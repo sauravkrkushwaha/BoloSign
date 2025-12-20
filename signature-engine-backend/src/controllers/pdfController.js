@@ -75,14 +75,19 @@ export const signPdf = async (req, res) => {
       details: { fieldsCount: fields.length },
     });
 
+    const publicUrl = `${req.protocol}://${req.get("host")}/uploads/${path.basename(
+      result.signedFilePath
+    )}`;
+
     return res.status(200).json({
       message: "PDF signed successfully",
-      url: `/uploads/${path.basename(result.signedFilePath)}`,
+      url: publicUrl,
       hashes: {
         before: result.originalHash,
         after: result.signedHash,
       },
     });
+
   } catch (err) {
     console.error("❌ PDF signing failed");
     console.error(err.message);
