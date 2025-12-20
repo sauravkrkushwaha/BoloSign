@@ -1,14 +1,11 @@
 // src/controllers/pdfController.js
 
 import path from "path";
-import { fileURLToPath } from "url";
+import fs from "fs";
 
 import PdfRecord from "../models/PdfRecord.js";
 import AuditTrail from "../models/AuditTrail.js";
 import { signPdfOnDisk } from "../services/pdfService.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 function buildSignedFileName(pdfId) {
   return `${pdfId}-signed-${Date.now()}.pdf`;
@@ -38,18 +35,28 @@ export const signPdf = async (req, res) => {
 
     let pdfRecord = await PdfRecord.findOne({ pdfId });
 
+    // 🔥 CREATE NEW RECORD WITH LINUX-SAFE PATH
     if (!pdfRecord) {
       const defaultPdfPath = path.resolve(
         process.cwd(),
         "assets",
         "original-sample.pdf"
       );
+
+      // SAFETY CHECK
+      if (!fs.existsSync(defaultPdfPath)) {
+        return res.status(500).json({
+          error: "Default PDF not found on server",
+        });
+      }
+
       pdfRecord = await PdfRecord.create({
         pdfId,
         originalHash: "TEMP",
         filePath: defaultPdfPath,
       });
     }
+
     const result = await signPdfOnDisk({
       pdfPath: pdfRecord.filePath,
       outputFileName: buildSignedFileName(pdfId),
@@ -67,6 +74,7 @@ export const signPdf = async (req, res) => {
       action: "SIGNED",
       details: { fieldsCount: fields.length },
     });
+
     return res.status(200).json({
       message: "PDF signed successfully",
       url: `/uploads/${path.basename(result.signedFilePath)}`,
@@ -76,7 +84,10 @@ export const signPdf = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("❌ PDF signing failed:", err);
-    return res.status(500).json({ error: "PDF signing failed" });
+    console.error("❌ PDF signing failed");
+    console.error(err.message);
+    console.error(err.stack);
+
+    return res.status(500).json({ error: err.message });
   }
 };
